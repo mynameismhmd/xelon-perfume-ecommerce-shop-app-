@@ -216,7 +216,7 @@ class _MyAppState extends State<MyApp> {
               debugShowCheckedModeBanner: false,
               home: Scaffold(
                 appBar: null, // Hide the app bar
-                body: user != null ? SplashScreen2() : const SplashScreen(),
+                body: user != null ? SplashScreen2() : const SplashScreen2(),
               ),
             );
           },
