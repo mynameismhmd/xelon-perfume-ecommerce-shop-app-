@@ -18,3 +18,5 @@ a perfume selling e-commerce app with login signup google maps firebase firestor
 ![my orders](https://github.com/mynameismhmd/xelon-perfume-ecommerce-shop-app-/assets/118634852/fad1d76b-2da4-42b9-b5ec-04dfd7644c0e)
 ![choose the language](https://github.com/mynameismhmd/xelon-perfume-ecommerce-shop-app-/assets/118634852/9f2a9f6f-2f9b-4ae1-8897-fd7d512b45f0)
 ![profilepage](https://github.com/mynameismhmd/xelon-perfume-ecommerce-shop-app-/assets/118634852/02d5b141-3a4f-47b0-a422-8974a749c6a8)
+![notifications](https://github.com/mynameismhmd/xelon-perfume-ecommerce-shop-app-/assets/118634852/d883ac3c-dc58-45ad-a31f-4af9dc0f431b)
+![calling](https://github.com/mynameismhmd/xelon-perfume-ecommerce-shop-app-/assets/118634852/2248ccda-a193-431f-86ad-0a1e41237843)
