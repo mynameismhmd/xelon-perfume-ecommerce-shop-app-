@@ -1,6 +1,7 @@
 import 'package:app_settings/app_settings.dart';
 import 'package:auth1/welcome.dart';
 import 'package:auth1/welcomear.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
@@ -71,14 +72,48 @@ class _SceneState extends State<Scene> {
         },
       );
     }
-
+    void _showChangePasswordDialog(BuildContext context) {
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Change Password',style: TextStyle(color: Colors.white ,fontFamily: 'mi'),),
+            content: Text('Do you want to change your password?',style: TextStyle(color: Colors.black ,fontFamily: 'mi'),),
+            actions: [
+              TextButton(
+                child: Text('No',style: TextStyle(color: Colors.yellow ,fontFamily: 'mi'),),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                child: Text('Yes',style: TextStyle(color: Colors.yellow ,fontFamily: 'mi'),),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChangePasswordPage(),
+                    ),
+                  );
+                },
+              ),
+            ],
+            backgroundColor: const Color(0xffa79961),
+            elevation: 0,
+          );
+        },
+      );
+    }
 
 
 
     double baseWidth = 428;
     double fem = MediaQuery.of(context).size.width / baseWidth;
     double ffem = fem * 0.97;
-    return Theme(
+    return  Material( // Add Material widget as the root of the widget tree
+        child:
+      Theme(
       data: themeData,
         child: SizedBox(
       width: double.infinity,
@@ -410,6 +445,7 @@ class _SceneState extends State<Scene> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+
                     Container(
                       // lockbfK (6:201)
                       margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 22*fem, 3*fem),
@@ -421,6 +457,11 @@ class _SceneState extends State<Scene> {
                         height: 13.33*fem,
                       ),
                     ),
+              GestureDetector(
+                onTap: () {
+                  _showChangePasswordDialog(context);
+                },
+                child:
                     Container(
                       // changepasswordKLR (6:194)
                       margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 137*fem, 3*fem),
@@ -434,7 +475,8 @@ class _SceneState extends State<Scene> {
                           color: const Color(0xff000000),
                         ),
                       ),
-                    ),
+                    ),),
+
                     Container(
                       // vectordM7 (6:196)
                       margin: EdgeInsets.fromLTRB(0*fem, 15*fem, 0*fem, 0*fem),
@@ -893,6 +935,114 @@ class _SceneState extends State<Scene> {
           ],
         ),
       ),
-        ));
+        )));
   }
 }
+class ChangePasswordPage extends StatefulWidget {
+  @override
+  _ChangePasswordPageState createState() => _ChangePasswordPageState();
+}
+
+class _ChangePasswordPageState extends State<ChangePasswordPage> {
+  TextEditingController currentPasswordController = TextEditingController();
+  TextEditingController newPasswordController = TextEditingController();
+
+  String errorText = '';
+
+  void _savePassword(BuildContext context) async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      String currentPassword = currentPasswordController.text;
+      String newPassword = newPasswordController.text;
+
+      // Verify current password
+      AuthCredential credential =
+      EmailAuthProvider.credential(email: user.email!, password: currentPassword);
+      try {
+        await user.reauthenticateWithCredential(credential);
+      } catch (e) {
+        // Handle authentication error
+        setState(() {
+          errorText = 'Invalid current password.';
+        });
+        return;
+      }
+
+      // Update password in Firebase Authentication
+      try {
+        await user.updatePassword(newPassword);
+      } catch (e) {
+        // Handle password update error
+        setState(() {
+          errorText = 'Failed to update password.';
+        });
+        return;
+      }
+
+      // Update password in Firestore
+      FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'password': newPassword,
+      });
+
+      // Show password saved dialog
+      _showPasswordSavedDialog(context);
+    }
+  }
+
+  void _showPasswordSavedDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Password Saved'),
+          content: Text('Your password has been saved.'),
+          actions: [
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Change Password'),
+      ),
+      body: Column(
+        children: [
+          TextField(
+            controller: currentPasswordController,
+            decoration: InputDecoration(labelText: 'Current Password'),
+          ),
+          TextField(
+            controller: newPasswordController,
+            decoration: InputDecoration(labelText: 'New Password'),
+          ),
+          if (errorText.isNotEmpty)
+            Text(
+              errorText,
+              style: TextStyle(color: Colors.red),
+            ),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                errorText = '';
+              });
+              _savePassword(context);
+            },
+            child: Text('Save Password'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
