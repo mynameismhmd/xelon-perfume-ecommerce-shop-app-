@@ -11,9 +11,14 @@ import 'cartmodel.dart';
 import 'package:get/get.dart';
 import 'controller.dart';
 import 'favorits.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+
 import 'package:path/path.dart' as path;
 
 import 'favoritsar.dart';
+import 'main.dart';
 
 
 class Glassar extends StatefulWidget {
@@ -28,6 +33,8 @@ class Glassar extends StatefulWidget {
 class _GlassarState extends State<Glassar> {
   bool isFavorite = false;
   String perfumeName = '';
+  final FocusNode searchFocusNode = FocusNode();
+  late FocusNode _searchFocusNode;
   List<String> favoriteItems = [];
 
   late Map<String, String> itemImages;
@@ -48,7 +55,7 @@ class _GlassarState extends State<Glassar> {
     {'name': 'sarada', 'price': '66'},
     {'name': 'boruto', 'price': '88'},
     {'name': 'mansu', 'price': '99'},
-    {'name': 'ghfhf', 'price': '44'},
+    {'name': 'jaguar', 'price': '44'},
   ];
   List<String> kk = [
     'العنصر 1',
@@ -57,7 +64,17 @@ class _GlassarState extends State<Glassar> {
     'العنصر 4',
     'العنصر 5',
   ];
+  List<String> suggestions = [
+    'gucci',
+    'boruto',
 
+  ];
+  final stt.SpeechToText speech = stt.SpeechToText();
+  bool isListening = false;
+  String recognizedText = '';
+  FlutterTts flutterTts = FlutterTts();
+  bool isSearchFocused = false;
+  List<String> filteredSuggestions = [];
   @override
   void initState() {
     super.initState();
@@ -69,7 +86,11 @@ class _GlassarState extends State<Glassar> {
       kkItems: {}, itemImages: {},
     );
     itemImages = {};
+    speech.initialize();
 
+
+    filteredSuggestions = suggestions;
+    _searchFocusNode = FocusNode();
     initItemImages();
   }
   Future<void> initItemImages() async {
@@ -90,7 +111,54 @@ class _GlassarState extends State<Glassar> {
       itemImages: itemImages, cartItems: [],
     );
   }
+  void _updateSuggestions(String input) {
+    setState(() {
+      if (input.isEmpty) {
+        displayedPerfumes = perfumes;
+      } else {
+        displayedPerfumes = perfumes.where((perfume) {
+          final name = perfume['name'] as String;
+          return name.toLowerCase().contains(input.toLowerCase());
+        }).toList();
+      }
+    });
+  }
 
+  void startListening() async {
+    bool microphonePermissionGranted = await Permission.microphone.request().isGranted;
+    if (microphonePermissionGranted) {
+      bool available = await speech.initialize(
+        onStatus: (val) => print('onStatus: $val'),
+        onError: (val) => print('onError: $val'),
+      );
+
+      if (available) {
+        setState(() {
+          isListening = true;
+        });
+        speech.listen(
+          onResult: (result) {
+            setState(() {
+              recognizedText = result.recognizedWords;
+              flutterTts.speak(result.recognizedWords);
+              searchQuery = recognizedText;
+            });
+          },
+        );
+      }
+    }
+  }
+
+
+
+  @override
+  void dispose() {
+    super.dispose();
+    speech.cancel();
+    _searchFocusNode.dispose();
+
+
+  }
 
 
 
@@ -282,14 +350,35 @@ class _GlassarState extends State<Glassar> {
                           ),
                         ),
                       ),
+                      GestureDetector(
+
+                        onTap: () {
+                          if (isSearchFocused) {
+                            setState(() {
+                              isSearchFocused = false;
+                              searchFocusNode.unfocus();
+                            });
+                          }
+                        },
+                        child: Container(
+                          color: Colors.transparent,
+                        ),
+                      ),
                       Positioned(
                         top: 80,
                         left: 16,
                         right: 16,
                         child: TextField(
+                          focusNode: searchFocusNode,
+                          onTap: () {
+                            setState(() {
+                              isSearchFocused = true;
+                            });
+                          },
                           onChanged: (value) {
                             setState(() {
-                              searchQuery = value;
+                              _updateSuggestions(value);
+
                             });
                           },
                           style: const TextStyle(
@@ -314,6 +403,124 @@ class _GlassarState extends State<Glassar> {
                         ),
                       ),
                       Positioned(
+                        top: 110,
+                        left: 40,
+                        right: 40,
+                        child: Visibility(
+                          visible: isSearchFocused && filteredSuggestions.isNotEmpty,
+                          child: Container(
+                            width: 200,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.3),
+                                  spreadRadius: 2,
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: filteredSuggestions.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index == 0) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Text(
+                                      'Suggestions',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  final suggestion = filteredSuggestions[index - 1];
+                                  return ListTile(
+                                    title: Text(
+                                      suggestion,
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      setState(() {
+                                        searchQuery = suggestion;
+                                        isSearchFocused = false;
+                                        searchFocusNode.unfocus();
+                                      });
+                                    },
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+
+
+                      Positioned(
+                        top: 88,
+                        right: 87,
+                        child: GestureDetector(
+                          onTap: showSortOptions,
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.purple,
+                            ),
+                            child: Icon(
+                              Icons.filter_list,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 88,
+                        right: 40,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isListening) {
+                                startListening();
+                              } else {
+                                startListening();
+                              }
+                            });
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.purple,
+                            ),
+                            child:  IconButton(
+                              onPressed: () {
+                                if (isListening) {
+                                  stopListening();
+                                } else {
+                                  startListening();
+                                }
+                              },
+                              icon: Icon(isListening ? Icons.mic : Icons.mic_none,color: Colors.white,),
+
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      Positioned(
                         bottom: 18,
                         left: 0,
                         right: 0,
@@ -327,10 +534,10 @@ class _GlassarState extends State<Glassar> {
                                 final perfumeName = perfume['name'];
 
                                 final price = perfume['price']; // Retrieve the price from the perfume object
-                                if (index == 0) {
+                                if (perfumeName == 'gucci') {
                                   return _buildCard(
                                     Container(
-                                      margin: EdgeInsets.only(top: 20, right: 40 ,bottom: 60),  // Adjust the padding values as needed
+                                      margin: EdgeInsets.only(top: 20, right: 40 ,bottom: 60),
                                       child: Image(
                                         image: AssetImage('assets/shelmar.png'),
                                       ),
@@ -345,15 +552,52 @@ class _GlassarState extends State<Glassar> {
 
 
 
+                                if (perfumeName == 'sarada') {
+                                  return _buildCard(
+                                    Column(
+                                      children: [
+                                        Align(
+                                          alignment: FractionalOffset.topLeft,
+                                          child: Image.asset(
+                                            'assets/pp.png',
+                                            width: 200,
+                                            height: 168,
+                                          ),
+                                        ),
 
-
-
+                                      ],
+                                    ),
+                                    perfumeName,
+                                    price,
+                                    cartItems,
+                                    kk[index],
+                                  );}
+                                if (perfumeName == 'jaguar') {
+                                  return _buildCard(
+                                    Stack(
+                                      children: [
+                                        Positioned(
+                                          left: 0,
+                                          top: 40,
+                                          child: Image.asset(
+                                            'assets/jcct.png',
+                                            width: 200,
+                                            height: 126,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    perfumeName,
+                                    price,
+                                    cartItems,
+                                    kk[index],
+                                  );}
 
                                 return _buildCard(
                                   Image.asset(
                                     'assets/pg.png',
-                                    width: 80, // Replace with the desired width value
-                                    height: 90, // Replace with the desired height value
+                                    width: 80,
+                                    height: 90,
                                   ),
                                   perfumeName,
                                   price,
@@ -368,6 +612,7 @@ class _GlassarState extends State<Glassar> {
                 ),
               ),
             )));}
+
 
   Widget _buildCard(
       Widget  imagePath,
@@ -542,4 +787,48 @@ class _GlassarState extends State<Glassar> {
       ],
     );
   }
+  void showSortOptions() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDarkMode = themeProvider.isDarkMode;
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Container(
+          color: isDarkMode ? Colors.black : Colors.white,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text('Sort by Price', style: TextStyle( fontFamily:'mi',color: isDarkMode ? Colors.white : Colors.black,)),
+                onTap: () {
+                  setState(() {
+                    displayedPerfumes.sort((a, b) => int.parse(a['price']).compareTo(int.parse(b['price'])));
+                  });
+                  Navigator.pop(context); // Close the bottom sheet
+                },
+              ),
+              ListTile(
+                title: Text('Sort by Name', style: TextStyle( fontFamily:'mi', color: isDarkMode ? Colors.white : Colors.black,)),
+                onTap: () {
+                  setState(() {
+                    displayedPerfumes.sort((a, b) => a['name'].compareTo(b['name']));
+                  });
+                  Navigator.pop(context); // Close the bottom sheet
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+  void stopListening() {
+    speech.stop();
+    setState(() {
+      isListening = false;
+    });
+
+  }
+
+
 }
